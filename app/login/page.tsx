@@ -39,15 +39,14 @@ export default function LoginPage() {
   };
 
   return (
-    
     <div
       className="relative flex flex-col items-center justify-center min-h-screen bg-cover bg-center"
       style={{ backgroundImage: "url('/fondo-login.jpg')" }}
     >
       <div className="absolute inset-0 bg-black/40" />
-      {/* 🔹 Header */}
+
       <Header />
-      {/* 🔹 Formulario */}
+
       <h1 className="text-4xl font-bold text-white mb-8 drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)]">
         Seguimiento de Reparaciones
       </h1>
@@ -57,7 +56,9 @@ export default function LoginPage() {
           Iniciar sesión
         </h2>
 
-        <div className="w-full flex flex-col gap-4">
+        {/* ✅ FORMULARIO CORRECTO */}
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+
           <input
             type="text"
             placeholder="Usuario"
@@ -75,20 +76,21 @@ export default function LoginPage() {
             className="border p-3 rounded text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             required
           />
-        </div>
 
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
 
-        <button
-          type="submit"
-          className="w-full bg-[#2CA3E0] hover:bg-[#1b7fb5] text-white font-semibold py-2 rounded-lg transition"
-        >
-          Ingresar
-        </button>
+          <button
+            type="submit"
+            className="w-full bg-[#2CA3E0] hover:bg-[#1b7fb5] text-white font-semibold py-2 rounded-lg transition"
+          >
+            Ingresar
+          </button>
 
+        </form>
+        
       </div>
-
-
     </div>
   );
 }

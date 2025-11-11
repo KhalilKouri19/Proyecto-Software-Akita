@@ -42,9 +42,6 @@ export default function Header() {
             <FaWhatsapp />
           </Link>
           <Link href="#" className="hover:text-gray-200">
-            <FaTwitter />
-          </Link>
-          <Link href="#" className="hover:text-gray-200">
             <FaFacebookF />
           </Link>
           <Link href="#" className="hover:text-gray-200">

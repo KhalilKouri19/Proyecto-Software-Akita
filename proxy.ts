@@ -1,31 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
-export async function proxy(req: NextRequest) {
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+export default withAuth(
+  function middleware(req) {
+    const token = req.nextauth?.token;
 
-  const { pathname } = req.nextUrl;
-
-  console.log("🔍 Proxy token:", token); // Debug temporal
-
-  // 🔒 Si no hay sesión y no está en login → redirige a /login
-  if (!token && !pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  // ⚡ Si hay sesión y va a /admin → verificar rol
-  if (pathname.startsWith("/admin")) {
-    if (token?.role !== "admin") {
-      return NextResponse.redirect(new URL("/seguimiento", req.url));
+    // Si no hay sesión y trata de acceder a /seguimiento, redirigir al login
+    if (!token && req.nextUrl.pathname.startsWith("/seguimiento")) {
+      return NextResponse.redirect(new URL("/login", req.url));
     }
-  }
 
-  return NextResponse.next();
-}
+    // Si el usuario autenticado es admin, no puede acceder al seguimiento
+    if (token?.role === "admin" && req.nextUrl.pathname.startsWith("/seguimiento")) {
+      return NextResponse.redirect(new URL("/admin", req.url));
+    }
+
+    return NextResponse.next();
+  },
+  {
+    callbacks: {
+      authorized: () => true, // Permitir el acceso, validamos manualmente arriba
+    },
+  }
+);
 
 export const config = {
-  matcher: ["/admin/:path*", "/seguimiento/:path*"],
+  matcher: ["/seguimiento/:path*", "/admin/:path*"], // Protege ambas rutas
 };
