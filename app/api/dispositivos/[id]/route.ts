@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 
-// ✅ OBTENER un dispositivo por ID (por si lo usás en algún lado)
+// ✅ OBTENER un dispositivo por ID
 export async function GET(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -38,7 +39,7 @@ export async function GET(
   }
 }
 
-// ✅ PATCH — editar un dispositivo
+// ✅ PATCH — editar dispositivo + datos del usuario
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
@@ -63,22 +64,77 @@ export async function PATCH(
       );
     }
 
-    const { Marca, Modelo, Estado, Problema } = body;
+    const {
+      Marca,
+      Modelo,
+      Problema,
+      Cliente,
+      Email,
+      Telefono,
+      UsuarioAcceso,
+      NuevaPassword,
+    } = body;
 
-    const updated = await prisma.dispositivo.update({
+    const dispositivo = await prisma.dispositivo.findUnique({
       where: { ID_Dispositivo: deviceId },
-      data: {
-        Marca,
-        Modelo,
-        Estado,
-        Problema,
-      },
+      include: { usuario: true },
+    });
+
+    if (!dispositivo) {
+      return NextResponse.json(
+        { error: "Dispositivo no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    let hashedPassword: string | undefined;
+    if (NuevaPassword && NuevaPassword.trim().length > 0) {
+      hashedPassword = await bcrypt.hash(NuevaPassword, 10);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1) Actualizar dispositivo
+      const updatedDevice = await tx.dispositivo.update({
+        where: { ID_Dispositivo: deviceId },
+        data: {
+          Marca,
+          Modelo,
+          Problema,
+          Cliente,
+          Email,
+          Telefono,
+        },
+      });
+
+      // 2) Actualizar usuario relacionado (si existe)
+      if (dispositivo.ID_Usuario) {
+        const userUpdateData: any = {
+          Nombre: Cliente,
+          Email,
+          Telefono,
+        };
+
+        if (UsuarioAcceso && UsuarioAcceso.trim().length > 0) {
+          userUpdateData.Usuario = UsuarioAcceso;
+        }
+
+        if (hashedPassword) {
+          userUpdateData.Contraseña = hashedPassword;
+        }
+
+        await tx.usuario.update({
+          where: { ID_Usuario: dispositivo.ID_Usuario },
+          data: userUpdateData,
+        });
+      }
+
+      return updatedDevice;
     });
 
     return NextResponse.json({
       success: true,
-      message: "Dispositivo actualizado correctamente",
-      dispositivo: updated,
+      message: "Dispositivo y datos del cliente actualizados correctamente",
+      dispositivo: result,
     });
   } catch (error) {
     console.error("Error al actualizar dispositivo:", error);
@@ -89,7 +145,8 @@ export async function PATCH(
   }
 }
 
-// ✅ DELETE — eliminar dispositivo
+// ✅ DELETE — eliminar dispositivo + órdenes + presupuestos asociados
+// y, si el usuario queda sin dispositivos, borrar también el usuario
 export async function DELETE(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -105,13 +162,62 @@ export async function DELETE(
       );
     }
 
-    await prisma.dispositivo.delete({
+    // Obtenemos el dispositivo para conocer el ID_Usuario
+    const dispositivo = await prisma.dispositivo.findUnique({
       where: { ID_Dispositivo: deviceId },
+    });
+
+    if (!dispositivo) {
+      return NextResponse.json(
+        { error: "Dispositivo no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const userId = dispositivo.ID_Usuario;
+
+    await prisma.$transaction(async (tx) => {
+      // 1) Buscar órdenes del dispositivo
+      const ordenes = await tx.ordenreparacion.findMany({
+        where: { ID_Dispositivo: deviceId },
+      });
+
+      const ordenIds = ordenes.map((o) => o.ID_OrdenReparacion);
+
+      // 2) Borrar presupuestos y órdenes relacionadas
+      if (ordenIds.length > 0) {
+        await tx.presupuesto.deleteMany({
+          where: { ID_OrdenReparacion: { in: ordenIds } },
+        });
+
+        await tx.ordenreparacion.deleteMany({
+          where: { ID_OrdenReparacion: { in: ordenIds } },
+        });
+      }
+
+      // 3) Borrar el dispositivo
+      await tx.dispositivo.delete({
+        where: { ID_Dispositivo: deviceId },
+      });
+
+      // 4) Si ese usuario ya no tiene más dispositivos, borrar también el usuario
+      if (userId) {
+        const remaining = await tx.dispositivo.count({
+          where: { ID_Usuario: userId },
+        });
+
+        if (remaining === 0) {
+          await tx.usuario.delete({
+            where: { ID_Usuario: userId },
+          });
+        }
+      }
     });
 
     return NextResponse.json({
       success: true,
-      message: "Dispositivo eliminado correctamente",
+      message:
+        "Dispositivo, datos asociados y usuario (si quedó sin dispositivos) eliminados correctamente",
     });
   } catch (error) {
     console.error("Error al eliminar dispositivo:", error);

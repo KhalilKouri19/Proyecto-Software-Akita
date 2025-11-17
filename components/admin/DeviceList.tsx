@@ -12,6 +12,7 @@ interface Device {
   Cliente: string;
   Email: string;
   Telefono: string;
+  UsuarioAcceso: string;
 }
 
 export default function DeviceList({ refresh }: { refresh: number }) {

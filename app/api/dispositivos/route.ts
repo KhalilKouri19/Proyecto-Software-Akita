@@ -2,16 +2,31 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
-// ✅ LISTAR todos los dispositivos
+// ✅ LISTAR todos los dispositivos (con info de usuario)
 export async function GET() {
   try {
     const dispositivos = await prisma.dispositivo.findMany({
+      include: {
+        usuario: true,
+      },
       orderBy: {
         ID_Dispositivo: "desc",
       },
     });
 
-    return NextResponse.json(dispositivos);
+    const formatted = dispositivos.map((d) => ({
+      ID_Dispositivo: d.ID_Dispositivo,
+      Marca: d.Marca || "",
+      Modelo: d.Modelo || "",
+      Estado: d.Estado || "",
+      Problema: d.Problema || "",
+      Cliente: d.Cliente || "",
+      Email: d.Email || "",
+      Telefono: d.Telefono || "",
+      UsuarioAcceso: d.usuario?.Usuario || "",
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error("Error al obtener dispositivos:", error);
     return NextResponse.json(
@@ -20,6 +35,9 @@ export async function GET() {
     );
   }
 }
+
+// ⬇️ Mantener aquí tu POST como ya lo teníamos (crear usuario + dispositivo)
+
 
 // ✅ CREAR un dispositivo nuevo + usuario cliente si no existe
 export async function POST(req: Request) {

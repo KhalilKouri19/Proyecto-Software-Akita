@@ -11,6 +11,7 @@ interface Device {
   Cliente: string;
   Email: string;
   Telefono: string;
+  UsuarioAcceso: string;
 }
 
 export default function DeviceCard({
@@ -32,8 +33,18 @@ export default function DeviceCard({
   const [estado, setEstado] = useState(device.Estado);
   const [problema, setProblema] = useState(device.Problema || "");
 
+  const [clienteNombre, setClienteNombre] = useState(device.Cliente);
+  const [email, setEmail] = useState(device.Email);
+  const [telefono, setTelefono] = useState(device.Telefono);
+  const [usuarioAcceso, setUsuarioAcceso] = useState(device.UsuarioAcceso || "");
+  const [nuevaPassword, setNuevaPassword] = useState("");
+
   const [presupuesto, setPresupuesto] = useState<string>("");
   const [settingBudget, setSettingBudget] = useState(false);
+  const [changingFlow, setChangingFlow] = useState(false);
+
+  const isBudgetLocked =
+    estado === "Listo para retirar" || estado === "Entregado";
 
   // 🔹 Eliminar dispositivo
   const handleDelete = async () => {
@@ -63,7 +74,7 @@ export default function DeviceCard({
     }
   };
 
-  // 🔹 Guardar edición de datos del dispositivo
+  // 🔹 Guardar edición de datos del dispositivo + usuario
   const handleEditSave = async () => {
     setSaving(true);
     try {
@@ -73,8 +84,12 @@ export default function DeviceCard({
         body: JSON.stringify({
           Marca: marca,
           Modelo: modelo,
-          Estado: estado,
           Problema: problema,
+          Cliente: clienteNombre,
+          Email: email,
+          Telefono: telefono,
+          UsuarioAcceso: usuarioAcceso,
+          NuevaPassword: nuevaPassword || null,
         }),
       });
 
@@ -86,8 +101,9 @@ export default function DeviceCard({
         console.warn("Respuesta sin JSON del servidor al editar");
       }
 
-      alert("✅ Dispositivo actualizado correctamente");
+      alert("✅ Dispositivo y datos del cliente actualizados correctamente");
       setEditing(false);
+      setNuevaPassword("");
       onUpdated();
     } catch (error) {
       console.error("Error al editar dispositivo:", error);
@@ -97,8 +113,15 @@ export default function DeviceCard({
     }
   };
 
-  // 🔹 Definir presupuesto (crea orden + presupuesto + cambia estado)
+  // 🔹 Definir presupuesto (crea/actualiza orden + presupuesto + cambia estado a En reparación)
   const handleSetPresupuesto = async () => {
+    if (isBudgetLocked) {
+      alert(
+        "El presupuesto no puede modificarse porque el dispositivo está 'Listo para retirar' o 'Entregado'."
+      );
+      return;
+    }
+
     if (!presupuesto) {
       alert("Ingresá un monto de presupuesto");
       return;
@@ -129,7 +152,7 @@ export default function DeviceCard({
         return;
       }
 
-      alert("✅ Presupuesto definido y orden de reparación generada");
+      alert("✅ Presupuesto definido y orden de reparación generada/actualizada");
       setEstado("En reparación");
       onUpdated();
     } catch (error) {
@@ -140,6 +163,47 @@ export default function DeviceCard({
     }
   };
 
+  // 🔹 Cambiar estado de flujo
+  const handleFlowAction = async (
+    accion: "en_reparacion" | "listo_para_retirar" | "entregado"
+  ) => {
+    setChangingFlow(true);
+    try {
+      const res = await fetch("/api/ordenes/estado", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ID_Dispositivo: device.ID_Dispositivo,
+          accion,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Error al actualizar estado");
+        return;
+      }
+
+      if (accion === "en_reparacion") setEstado("En reparación");
+      if (accion === "listo_para_retirar") setEstado("Listo para retirar");
+      if (accion === "entregado") setEstado("Entregado");
+
+      alert(data?.message || "Estado actualizado");
+      onUpdated();
+    } catch (error) {
+      console.error("Error al cambiar estado de flujo:", error);
+      alert("❌ Error al actualizar el estado");
+    } finally {
+      setChangingFlow(false);
+    }
+  };
+
+  // 🔹 Descargar comprobante PDF
+  const handleDownloadTicket = () => {
+    window.open(`/api/ticket/${device.ID_Dispositivo}`, "_blank");
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-md p-4 mb-4 border border-gray-200">
       <div className="flex justify-between items-center">
@@ -148,7 +212,7 @@ export default function DeviceCard({
             {marca} {modelo}
           </h3>
           <p className="text-sm text-gray-500">
-            Cliente: <span className="font-medium">{device.Cliente}</span>
+            Cliente: <span className="font-medium">{clienteNombre}</span>
           </p>
         </div>
 
@@ -188,21 +252,54 @@ export default function DeviceCard({
                   className="border rounded px-2 py-1 text-gray-900"
                 />
 
-                <label className="font-medium">Estado:</label>
-                <select
-                  value={estado}
-                  onChange={(e) => setEstado(e.target.value)}
+                <label className="font-medium">Nombre del cliente:</label>
+                <input
+                  type="text"
+                  value={clienteNombre}
+                  onChange={(e) => setClienteNombre(e.target.value)}
                   className="border rounded px-2 py-1 text-gray-900"
-                >
-                  <option value="A presupuestar">A presupuestar</option>
-                  <option value="En reparación">En reparación</option>
-                  <option value="Listo para retirar">Listo para retirar</option>
-                </select>
+                />
+
+                <label className="font-medium">Correo:</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="border rounded px-2 py-1 text-gray-900"
+                />
+
+                <label className="font-medium">Teléfono:</label>
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  className="border rounded px-2 py-1 text-gray-900"
+                />
+
+                <label className="font-medium">Usuario de acceso:</label>
+                <input
+                  type="text"
+                  value={usuarioAcceso}
+                  onChange={(e) => setUsuarioAcceso(e.target.value)}
+                  className="border rounded px-2 py-1 text-gray-900"
+                />
+
+                <label className="font-medium">Nueva contraseña (opcional):</label>
+                <input
+                  type="password"
+                  value={nuevaPassword}
+                  onChange={(e) => setNuevaPassword(e.target.value)}
+                  className="border rounded px-2 py-1 text-gray-900"
+                  placeholder="Dejar vacío para no cambiar"
+                />
               </div>
 
               <div className="flex justify-end gap-2 mt-3">
                 <button
-                  onClick={() => setEditing(false)}
+                  onClick={() => {
+                    setEditing(false);
+                    setNuevaPassword("");
+                  }}
                   className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1 rounded-lg text-sm"
                 >
                   Cancelar
@@ -222,15 +319,20 @@ export default function DeviceCard({
                 <strong>Problema:</strong> {problema || "No especificado"}
               </p>
               <p>
-                <strong>Correo:</strong> {device.Email}
+                <strong>Correo:</strong> {email}
               </p>
               <p>
-                <strong>Teléfono:</strong> {device.Telefono}
+                <strong>Teléfono:</strong> {telefono}
               </p>
               <p>
-                <strong>Estado:</strong> {estado}</p>
+                <strong>Usuario de acceso:</strong>{" "}
+                {usuarioAcceso || "No asignado"}
+              </p>
+              <p>
+                <strong>Estado:</strong> {estado}
+              </p>
 
-              {/* 🔹 Bloque para definir presupuesto */}
+              {/* Presupuesto */}
               <div className="mt-3 border-t pt-3">
                 <p className="font-medium">Presupuesto</p>
                 <div className="flex items-center gap-2 mt-1">
@@ -241,15 +343,57 @@ export default function DeviceCard({
                     onChange={(e) => setPresupuesto(e.target.value)}
                     className="border rounded px-2 py-1 text-gray-900 w-32"
                     placeholder="Monto"
+                    disabled={isBudgetLocked || settingBudget}
                   />
                   <button
                     onClick={handleSetPresupuesto}
-                    disabled={settingBudget}
+                    disabled={settingBudget || isBudgetLocked}
                     className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm"
                   >
                     {settingBudget ? "Guardando..." : "Definir presupuesto"}
                   </button>
                 </div>
+              </div>
+
+              {/* Botón para descargar comprobante */}
+              <div className="mt-3">
+                <button
+                  onClick={handleDownloadTicket}
+                  className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded-lg text-sm"
+                >
+                  Descargar comprobante
+                </button>
+              </div>
+
+              {/* Botones de flujo de reparación */}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {estado === "A presupuestar" && (
+                  <button
+                    onClick={() => handleFlowAction("en_reparacion")}
+                    disabled={changingFlow}
+                    className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-lg text-sm"
+                  >
+                    {changingFlow ? "Actualizando..." : "Marcar en reparación"}
+                  </button>
+                )}
+                {estado === "En reparación" && (
+                  <button
+                    onClick={() => handleFlowAction("listo_para_retirar")}
+                    disabled={changingFlow}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm"
+                  >
+                    {changingFlow ? "Actualizando..." : "Listo para retirar"}
+                  </button>
+                )}
+                {estado === "Listo para retirar" && (
+                  <button
+                    onClick={() => handleFlowAction("entregado")}
+                    disabled={changingFlow}
+                    className="bg-gray-700 hover:bg-gray-800 text-white px-3 py-1 rounded-lg text-sm"
+                  >
+                    {changingFlow ? "Actualizando..." : "Marcar entregado"}
+                  </button>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 mt-3">

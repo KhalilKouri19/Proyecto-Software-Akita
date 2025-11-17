@@ -5,7 +5,6 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // 👇 Desarmamos la Promise de params
     const { id } = await context.params;
     const userId = Number(id);
 
@@ -16,21 +15,33 @@ export async function GET(
       );
     }
 
-    // 🔹 Traemos SOLO los dispositivos del usuario
+    // 1) Traemos los dispositivos del usuario
     const dispositivos = await prisma.dispositivo.findMany({
       where: { ID_Usuario: userId },
     });
 
-    // 🔹 Formateamos al shape que espera el frontend
-    const formatted = dispositivos.map((d) => ({
-      ID_Dispositivo: d.ID_Dispositivo,
-      Marca: d.Marca || "",
-      Modelo: d.Modelo || "",
-      Estado: d.Estado || "",
-      Problema: d.Problema || "",
-      Presupuesto: null,
-      FechaPresupuesto: null,
-    }));
+    // 2) Para cada dispositivo, buscamos la última orden + presupuesto
+    const formatted = await Promise.all(
+      dispositivos.map(async (d) => {
+        const orden = await prisma.ordenreparacion.findFirst({
+          where: { ID_Dispositivo: d.ID_Dispositivo },
+          orderBy: { ID_OrdenReparacion: "desc" },
+          include: {
+            presupuesto: true,
+          },
+        });
+
+        return {
+          ID_Dispositivo: d.ID_Dispositivo,
+          Marca: d.Marca || "",
+          Modelo: d.Modelo || "",
+          Estado: d.Estado || "",
+          Problema: d.Problema || "",
+          Presupuesto: orden?.presupuesto?.Monto ?? null,
+          FechaPresupuesto: orden?.presupuesto?.Fecha ?? null,
+        };
+      })
+    );
 
     return Response.json(formatted);
   } catch (err) {
