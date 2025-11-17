@@ -1,13 +1,11 @@
-// app/seguimiento/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import Link from "next/link";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import LogoutButton from "@/components/common/LogoutButton";
 
 type Dispositivo = {
   ID_Dispositivo: number;
-  NombreDispositivo: string;
   Marca: string;
   Modelo: string;
   Estado: string;
@@ -16,52 +14,76 @@ type Dispositivo = {
   FechaPresupuesto?: string | null;
 };
 
-export default async function SeguimientoPage() {
-  const session = await getServerSession(authOptions);
+export default function SeguimientoPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [dispositivos, setDispositivos] = useState<Dispositivo[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!session || !session.user?.email) {
-    redirect("/login");
-  }
+  useEffect(() => {
+    const u = localStorage.getItem("user");
+    if (!u) {
+      router.push("/login");
+      return;
+    }
 
-  const [rows]: any = await db.query(
-    `
-    SELECT 
-      d.ID_Dispositivo,
-      d.Marca,
-      d.Modelo,
-      d.Estado,
-      d.Problema,
-      p.Monto AS Presupuesto,
-      p.Fecha AS FechaPresupuesto
-    FROM Dispositivo d
-    LEFT JOIN OrdenReparacion o ON o.ID_Dispositivo = d.ID_Dispositivo
-    LEFT JOIN Presupuesto p ON p.ID_OrdenReparacion = o.ID_OrdenReparacion
-    WHERE d.ID_Usuario = (SELECT ID_Usuario FROM Usuario WHERE Email = ?)
-    ORDER BY d.ID_Dispositivo DESC
-    `,
-    [session.user.email]
-  );
+    const parsed = JSON.parse(u);
+    setUser(parsed);
 
-  const dispositivos: Dispositivo[] = rows;
+    const loadDispositivos = async () => {
+      try {
+        const res = await fetch(`/api/seguimiento/${parsed.ID_Usuario}`);
+
+        if (!res.ok) {
+          console.error("Error en /api/seguimiento:", res.status, res.statusText);
+          setError("No se pudieron cargar los dispositivos.");
+          setDispositivos([]);
+          return;
+        }
+
+        const text = await res.text();
+
+        if (!text) {
+          // Respuesta vacía: la tratamos como “sin dispositivos”
+          setDispositivos([]);
+          return;
+        }
+
+        const data = JSON.parse(text);
+        setDispositivos(data);
+      } catch (err) {
+        console.error("Error cargando dispositivos:", err);
+        setError("Ocurrió un error al cargar los dispositivos.");
+        setDispositivos([]);
+      }
+    };
+
+    loadDispositivos();
+  }, [router]);
+
+  if (!user)
+    return (
+      <main className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <p>Cargando...</p>
+      </main>
+    );
 
   return (
     <main className="min-h-screen bg-gray-100 flex flex-col items-center pt-32 pb-16">
       {/* 🔹 Encabezado superior */}
       <div className="flex justify-between items-center w-full max-w-5xl mb-10">
         <h1 className="text-3xl font-bold text-[#2CA3E0]">
-          Bienvenido, {session.user?.name}
+          Bienvenido, {user.Nombre}
         </h1>
-        <Link
-          href="/api/auth/signout?callbackUrl=/login"
-          className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg transition"
-        >
-          Cerrar sesión
-        </Link>
+
+        <LogoutButton className="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2 rounded-lg transition" />
       </div>
 
       {/* 🔹 Contenedor centrado */}
       <div className="flex justify-center w-full">
-        {dispositivos.length === 0 ? (
+        {error ? (
+          <p className="text-red-500 text-center mt-10">{error}</p>
+        ) : dispositivos.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">
             No hay dispositivos registrados a tu cuenta.
           </p>
@@ -76,9 +98,15 @@ export default async function SeguimientoPage() {
                   {d.Marca} {d.Modelo}
                 </h2>
 
-                <p className="text-sm text-gray-700"><strong>Marca:</strong> {d.Marca}</p>
-                <p className="text-sm text-gray-700"><strong>Modelo:</strong> {d.Modelo}</p>
-                <p className="text-sm text-gray-700"><strong>Estado:</strong> {d.Estado}</p>
+                <p className="text-sm text-gray-700">
+                  <strong>Marca:</strong> {d.Marca}
+                </p>
+                <p className="text-sm text-gray-700">
+                  <strong>Modelo:</strong> {d.Modelo}
+                </p>
+                <p className="text-sm text-gray-700">
+                  <strong>Estado:</strong> {d.Estado}
+                </p>
                 <p className="text-sm text-gray-700">
                   <strong>Problema:</strong> {d.Problema || "No especificado"}
                 </p>

@@ -11,7 +11,6 @@ export default function AdminSidebar({ onAdded }: { onAdded: () => void }) {
   const [telefono, setTelefono] = useState("");
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
-  const [estado, setEstado] = useState("A presupuestar");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +25,7 @@ export default function AdminSidebar({ onAdded }: { onAdded: () => void }) {
           Marca: marca,
           Modelo: modelo,
           Problema: problema,
-          Estado: estado,
+          Estado: "A presupuestar", // 👈 siempre inicia así
           Cliente: cliente,
           Email: email,
           Telefono: telefono,
@@ -35,23 +34,29 @@ export default function AdminSidebar({ onAdded }: { onAdded: () => void }) {
         }),
       });
 
-      if (res.ok) {
-        alert("✅ Dispositivo agregado correctamente");
-        setMarca("");
-        setModelo("");
-        setProblema("");
-        setCliente("");
-        setEmail("");
-        setTelefono("");
-        setUsuario("");
-        setPassword("");
-        setEstado("A presupuestar");
-        onAdded();
-      } else {
-        alert("⚠️ Error al agregar dispositivo");
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "⚠️ Error al agregar dispositivo");
+        return;
       }
+
+      alert("✅ Dispositivo agregado correctamente");
+
+      // Limpiar formulario
+      setMarca("");
+      setModelo("");
+      setProblema("");
+      setCliente("");
+      setEmail("");
+      setTelefono("");
+      setUsuario("");
+      setPassword("");
+
+      onAdded();
     } catch (error) {
       console.error("Error:", error);
+      alert("❌ Error de conexión al agregar dispositivo");
     } finally {
       setLoading(false);
     }
@@ -84,15 +89,6 @@ export default function AdminSidebar({ onAdded }: { onAdded: () => void }) {
           onChange={(e) => setProblema(e.target.value)}
           className="border p-2 rounded text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
         />
-        <select
-          value={estado}
-          onChange={(e) => setEstado(e.target.value)}
-          className="border p-2 rounded text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-        >
-          <option value="A presupuestar">A presupuestar</option>
-          <option value="En reparación">En reparación</option>
-          <option value="Listo para retirar">Listo para retirar</option>
-        </select>
         <input
           type="text"
           placeholder="Nombre del cliente"

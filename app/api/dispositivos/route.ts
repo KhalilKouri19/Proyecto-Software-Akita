@@ -1,25 +1,17 @@
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
-// ✅ GET — Listar dispositivos
+// ✅ LISTAR todos los dispositivos
 export async function GET() {
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        d.ID_Dispositivo,
-        d.Marca,
-        d.Modelo,
-        d.Estado,
-        d.Problema,
-        d.Cliente,
-        d.Email,
-        d.Telefono
-      FROM Dispositivo d
-      ORDER BY d.ID_Dispositivo DESC
-    `);
+    const dispositivos = await prisma.dispositivo.findMany({
+      orderBy: {
+        ID_Dispositivo: "desc",
+      },
+    });
 
-    return NextResponse.json(Array.isArray(rows) ? rows : []);
+    return NextResponse.json(dispositivos);
   } catch (error) {
     console.error("Error al obtener dispositivos:", error);
     return NextResponse.json(
@@ -29,15 +21,16 @@ export async function GET() {
   }
 }
 
-// ✅ POST — Agregar dispositivo y crear orden de reparación
+// ✅ CREAR un dispositivo nuevo + usuario cliente si no existe
 export async function POST(req: Request) {
   try {
     const data = await req.json();
+
     const {
       Marca,
       Modelo,
-      Estado,
       Problema,
+      Estado,
       Cliente,
       Email,
       Telefono,
@@ -45,48 +38,60 @@ export async function POST(req: Request) {
       Password,
     } = data;
 
-    // 🔹 1) Verificar si el usuario ya existe
-    const [existingUser]: any = await db.query(
-      "SELECT ID_Usuario FROM Usuario WHERE Usuario = ? LIMIT 1",
-      [Usuario]
-    );
-
-    let userId: number;
-
-    if (existingUser.length > 0) {
-      userId = existingUser[0].ID_Usuario;
-    } else {
-      // 🔹 2) Crear nuevo usuario con contraseña hasheada
-      const hashedPass = await bcrypt.hash(Password, 10);
-
-      const [result]: any = await db.query(
-        "INSERT INTO Usuario (Usuario, Nombre, Email, Telefono, Contraseña, Rol) VALUES (?, ?, ?, ?, ?, 'cliente')",
-        [Usuario, Cliente, Email, Telefono, hashedPass]
+    // 🔎 Validar datos mínimos
+    if (
+      !Cliente ||
+      !Email ||
+      !Telefono ||
+      !Usuario ||
+      !Password
+    ) {
+      return NextResponse.json(
+        { error: "Faltan datos obligatorios del cliente o usuario" },
+        { status: 400 }
       );
-      userId = result.insertId;
     }
 
-    // 🔹 3) Insertar dispositivo asociado al usuario
-    const [deviceResult]: any = await db.query(
-      "INSERT INTO Dispositivo (Marca, Modelo, Estado, Problema, Cliente, Email, Telefono, ID_Usuario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [Marca, Modelo, Estado, Problema, Cliente, Email, Telefono, userId]
-    );
-
-    const deviceId = deviceResult.insertId;
-
-    // 🔹 4) Crear orden de reparación automáticamente
-    await db.query(
-      "INSERT INTO OrdenReparacion (Fecha_orden, ID_Dispositivo, ID_Usuario) VALUES (CURRENT_DATE, ?, ?)",
-      [deviceId, userId]
-    );
-
-    return NextResponse.json({
-      message: "✅ Dispositivo agregado y orden de reparación creada correctamente",
+    // 1) Buscar usuario existente por nombre de usuario
+    let user = await prisma.usuario.findUnique({
+      where: { Usuario },
     });
+
+    // 2) Si no existe, crearlo como cliente
+    if (!user) {
+      const hashed = await bcrypt.hash(Password, 10);
+
+      user = await prisma.usuario.create({
+        data: {
+          Usuario,
+          Nombre: Cliente,
+          Email,
+          Telefono,
+          Contraseña: hashed,
+          Rol: "cliente",
+        },
+      });
+    }
+
+    // 3) Crear el dispositivo asociado a ese usuario
+    const dispositivo = await prisma.dispositivo.create({
+      data: {
+        Estado: Estado || "A presupuestar",
+        Modelo: Modelo || "",
+        Marca: Marca || "",
+        Problema: Problema || "",
+        Cliente,
+        Email,
+        Telefono,
+        ID_Usuario: user.ID_Usuario,
+      },
+    });
+
+    return NextResponse.json(dispositivo, { status: 201 });
   } catch (error) {
-    console.error("Error al agregar dispositivo:", error);
+    console.error("Error al crear dispositivo:", error);
     return NextResponse.json(
-      { error: "Error al agregar dispositivo" },
+      { error: "Error al crear dispositivo" },
       { status: 500 }
     );
   }

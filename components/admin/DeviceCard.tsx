@@ -32,6 +32,9 @@ export default function DeviceCard({
   const [estado, setEstado] = useState(device.Estado);
   const [problema, setProblema] = useState(device.Problema || "");
 
+  const [presupuesto, setPresupuesto] = useState<string>("");
+  const [settingBudget, setSettingBudget] = useState(false);
+
   // 🔹 Eliminar dispositivo
   const handleDelete = async () => {
     if (!confirm(`¿Eliminar el dispositivo ${marca} ${modelo}?`)) return;
@@ -44,9 +47,8 @@ export default function DeviceCard({
 
       if (!res.ok) throw new Error("Error al eliminar");
 
-      let data = null;
       try {
-        data = await res.json();
+        await res.json();
       } catch {
         console.warn("Respuesta sin JSON del servidor al eliminar");
       }
@@ -61,21 +63,25 @@ export default function DeviceCard({
     }
   };
 
-  // 🔹 Guardar edición
+  // 🔹 Guardar edición de datos del dispositivo
   const handleEditSave = async () => {
     setSaving(true);
     try {
       const res = await fetch(`/api/dispositivos/${device.ID_Dispositivo}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Marca: marca, Modelo: modelo, Estado: estado, Problema: problema }),
+        body: JSON.stringify({
+          Marca: marca,
+          Modelo: modelo,
+          Estado: estado,
+          Problema: problema,
+        }),
       });
 
       if (!res.ok) throw new Error("Error al editar");
 
-      let data = null;
       try {
-        data = await res.json();
+        await res.json();
       } catch {
         console.warn("Respuesta sin JSON del servidor al editar");
       }
@@ -88,6 +94,49 @@ export default function DeviceCard({
       alert("❌ Error al editar el dispositivo");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 🔹 Definir presupuesto (crea orden + presupuesto + cambia estado)
+  const handleSetPresupuesto = async () => {
+    if (!presupuesto) {
+      alert("Ingresá un monto de presupuesto");
+      return;
+    }
+
+    const montoNumber = Number(presupuesto);
+    if (Number.isNaN(montoNumber) || montoNumber <= 0) {
+      alert("El monto de presupuesto debe ser un número mayor a 0");
+      return;
+    }
+
+    setSettingBudget(true);
+    try {
+      const res = await fetch("/api/presupuestos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ID_Dispositivo: device.ID_Dispositivo,
+          Monto: montoNumber,
+          Detalle: problema,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        alert(data?.error || "Error al definir presupuesto");
+        return;
+      }
+
+      alert("✅ Presupuesto definido y orden de reparación generada");
+      setEstado("En reparación");
+      onUpdated();
+    } catch (error) {
+      console.error("Error al definir presupuesto:", error);
+      alert("❌ Error al definir el presupuesto");
+    } finally {
+      setSettingBudget(false);
     }
   };
 
@@ -113,7 +162,6 @@ export default function DeviceCard({
 
       {expanded && (
         <div className="mt-3 border-t pt-3 text-sm text-gray-700 space-y-2">
-          {/* Campos editables si está en modo edición */}
           {editing ? (
             <>
               <div className="flex flex-col gap-2">
@@ -170,10 +218,39 @@ export default function DeviceCard({
             </>
           ) : (
             <>
-              <p><strong>Problema:</strong> {problema || "No especificado"}</p>
-              <p><strong>Correo:</strong> {device.Email}</p>
-              <p><strong>Teléfono:</strong> {device.Telefono}</p>
-              <p><strong>Estado:</strong> {estado}</p>
+              <p>
+                <strong>Problema:</strong> {problema || "No especificado"}
+              </p>
+              <p>
+                <strong>Correo:</strong> {device.Email}
+              </p>
+              <p>
+                <strong>Teléfono:</strong> {device.Telefono}
+              </p>
+              <p>
+                <strong>Estado:</strong> {estado}</p>
+
+              {/* 🔹 Bloque para definir presupuesto */}
+              <div className="mt-3 border-t pt-3">
+                <p className="font-medium">Presupuesto</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={presupuesto}
+                    onChange={(e) => setPresupuesto(e.target.value)}
+                    className="border rounded px-2 py-1 text-gray-900 w-32"
+                    placeholder="Monto"
+                  />
+                  <button
+                    onClick={handleSetPresupuesto}
+                    disabled={settingBudget}
+                    className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm"
+                  >
+                    {settingBudget ? "Guardando..." : "Definir presupuesto"}
+                  </button>
+                </div>
+              </div>
 
               <div className="flex justify-end gap-2 mt-3">
                 <button

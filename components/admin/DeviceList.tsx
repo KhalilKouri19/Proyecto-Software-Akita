@@ -18,24 +18,33 @@ export default function DeviceList({ refresh }: { refresh: number }) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchDevices = async () => {
-        setLoading(true);
-        try {
+      setLoading(true);
+      try {
         const res = await fetch("/api/dispositivos");
-        const data = await res.json();
+        const text = await res.text();
 
-        if (Array.isArray(data)) setDevices(data);
-        else {
-            console.error("Formato inesperado en /api/dispositivos:", data);
-            setDevices([]);
+        if (!text) {
+          console.error("Respuesta vacía de /api/dispositivos");
+          setDevices([]);
+          return;
         }
-        } catch (error) {
+
+        const data = JSON.parse(text);
+
+        if (Array.isArray(data)) {
+          setDevices(data);
+        } else {
+          console.error("Formato inesperado en /api/dispositivos:", data);
+          setDevices([]);
+        }
+      } catch (error) {
         console.error("Error al cargar dispositivos:", error);
         setDevices([]);
-        } finally {
+      } finally {
         setLoading(false);
-        }
+      }
     };
 
     fetchDevices();

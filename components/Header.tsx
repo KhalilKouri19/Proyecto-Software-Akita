@@ -31,7 +31,7 @@ export default function Header() {
           <Link href="/contacto" className="hover:text-gray-200 transition">
             CONTACTO
           </Link>
-          <Link href="/seguimiento" className="hover:text-gray-200 transition">
+          <Link href="/login" className="hover:text-gray-200 transition">
             SEGUIMIENTO DE REPARACIONES
           </Link>
         </nav>

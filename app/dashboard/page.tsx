@@ -1,15 +1,29 @@
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function DashboardPage() {
-  const session = await getServerSession();
-  if (!session) redirect("/login");
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Dashboard() {
+  const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const u = localStorage.getItem("user");
+    if (!u) {
+      router.push("/login");
+    } else {
+      setUser(JSON.parse(u));
+    }
+  }, []);
+
+  if (!user) return <p className="text-white">Cargando...</p>;
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">
-        Bienvenido, {session.user?.name} ({session.user?.role})
-      </h1>
-    </div>
+    <main className="p-6 text-white">
+      <h1 className="text-3xl font-bold">Bienvenido, {user.Nombre}</h1>
+      <p className="opacity-70">Rol: {user.Rol}</p>
+
+      {/* Acá luego agregamos tarjetas, listas, accesos, etc */}
+    </main>
   );
 }

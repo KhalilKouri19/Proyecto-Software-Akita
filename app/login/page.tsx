@@ -1,8 +1,7 @@
 "use client";
 
 import Header from "@/components/Header";
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -12,26 +11,44 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  // 🔵 SI YA HAY SESIÓN, REDIRIGIR
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+
+    if (stored) {
+      const user = JSON.parse(stored);
+      const role = (user.Rol || user.role || "").toLowerCase();
+
+      if (role === "admin") router.push("/admin");
+      else if (role === "cliente") router.push("/seguimiento");
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    const res = await signIn("credentials", {
-      redirect: false,
-      username,
-      password,
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        Usuario: username,
+        Contraseña: password,
+      }),
     });
 
-    if (res?.error) {
-      setError("Usuario o contraseña incorrectos");
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error || "Usuario o contraseña incorrectos");
       return;
     }
 
-    await new Promise((r) => setTimeout(r, 700));
+    // Guardar sesión
+    const user = data.user;
+    localStorage.setItem("user", JSON.stringify(user));
 
-    const sessionRes = await fetch("/api/session");
-    const session = await sessionRes.json();
-    const role = session?.user?.role?.toLowerCase();
+    const role = (user.Rol || user.role || "").toLowerCase();
 
     if (role === "admin") router.push("/admin");
     else if (role === "cliente") router.push("/seguimiento");
@@ -56,9 +73,7 @@ export default function LoginPage() {
           Iniciar sesión
         </h2>
 
-        {/* ✅ FORMULARIO CORRECTO */}
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-
           <input
             type="text"
             placeholder="Usuario"
@@ -87,9 +102,7 @@ export default function LoginPage() {
           >
             Ingresar
           </button>
-
         </form>
-        
       </div>
     </div>
   );
