@@ -25,7 +25,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 👇 ESTE es el objeto que va a ir al localStorage
     const userForClient = {
       ID_Usuario: user.ID_Usuario,
       Usuario: user.Usuario,

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
-// ✅ LISTAR todos los dispositivos (con info de usuario)
+// LISTAR todos los dispositivos (con info de usuario)
 export async function GET() {
   try {
     const dispositivos = await prisma.dispositivo.findMany({

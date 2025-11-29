@@ -158,7 +158,7 @@ export default function Footer() {
       </div> {/* ✅ ESTE cierre faltaba */}
 
       {/* Sección inferior */}
-      <div className="bg-[#222] flex flex-col sm:flex-row items-center justify-between px-10 py-6">
+      <div className="bg-[#222] flex flex-col sm:flex-row items-center justify-between px-10 py-10">
         <div className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -167,12 +167,26 @@ export default function Footer() {
             height={50}
             className="rounded-full"
           />
+
+          <Image
+            src="/logo_et29.png"
+            alt="Escuela Técnica Nº29"
+            width={50}
+            height={50}
+            className="rounded-full"
+          />
         </div>
+
 
         {/* 🔹 Copyright */}
         <div className="flex-1 text-center text-sm text-gray-400">
           © Akita Electrónica 2025
+          <br />
+          <span className="text-xs text-gray-500">
+            Proyecto de la Escuela Técnica Nº29 "Reconquista de Buenos Aires"
+          </span>
         </div>
+
 
         <div className="flex gap-4 text-lg text-gray-300">
           <Link href="#"><FaWhatsapp /></Link>

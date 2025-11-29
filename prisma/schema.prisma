@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,54 +8,55 @@ datasource db {
 }
 
 model usuario {
-  ID_Usuario   Int      @id @default(autoincrement())
-  Usuario      String   @unique
-  Nombre       String
-  Email        String?
-  Telefono     String?
-  Contraseña   String
-  Rol          Rol      @default(cliente)
-
+  ID_Usuario        Int               @id @default(autoincrement())
+  Usuario           String            @unique
+  Nombre            String
+  Email             String?
+  Telefono          String?
+  Contraseña       String
+  Rol               Rol               @default(cliente)
   dispositivos      dispositivo[]
   ordenesReparacion ordenreparacion[]
 }
 
 model dispositivo {
-  ID_Dispositivo Int      @id @default(autoincrement())
-  Estado         String?
-  Modelo         String?
-  Marca          String?
-  Problema       String?
-  Cliente        String
-  Email          String
-  Telefono       String
-  ID_Usuario     Int
-
-  usuario         usuario       @relation(fields: [ID_Usuario], references: [ID_Usuario])
+  ID_Dispositivo    Int               @id @default(autoincrement())
+  Estado            String?
+  Modelo            String?
+  Marca             String?
+  Problema          String?
+  Cliente           String
+  Email             String
+  Telefono          String
+  ID_Usuario        Int
+  usuario           usuario           @relation(fields: [ID_Usuario], references: [ID_Usuario])
   ordenesReparacion ordenreparacion[]
+
+  @@index([ID_Usuario], map: "dispositivo_ID_Usuario_fkey")
 }
 
 model ordenreparacion {
-  ID_OrdenReparacion Int      @id @default(autoincrement())
+  ID_OrdenReparacion Int          @id @default(autoincrement())
   Fecha_orden        DateTime
   Fecha_entrada      DateTime?
   Fecha_salida       DateTime?
   Detalle            String?
   ID_Dispositivo     Int
   ID_Usuario         Int
+  dispositivo        dispositivo  @relation(fields: [ID_Dispositivo], references: [ID_Dispositivo])
+  usuario            usuario      @relation(fields: [ID_Usuario], references: [ID_Usuario])
+  presupuesto        presupuesto?
 
-  dispositivo dispositivo @relation(fields: [ID_Dispositivo], references: [ID_Dispositivo])
-  usuario     usuario     @relation(fields: [ID_Usuario], references: [ID_Usuario])
-  presupuesto presupuesto?
+  @@index([ID_Dispositivo], map: "ordenreparacion_ID_Dispositivo_fkey")
+  @@index([ID_Usuario], map: "ordenreparacion_ID_Usuario_fkey")
 }
 
 model presupuesto {
-  ID_Presupuesto      Int      @id @default(autoincrement())
-  Monto               Decimal  @db.Decimal(10,2)
-  Fecha               DateTime
-  ID_OrdenReparacion  Int      @unique
-
-  ordenreparacion ordenreparacion @relation(fields: [ID_OrdenReparacion], references: [ID_OrdenReparacion])
+  ID_Presupuesto     Int             @id @default(autoincrement())
+  Monto              Decimal         @db.Decimal(10, 2)
+  Fecha              DateTime
+  ID_OrdenReparacion Int             @unique
+  ordenreparacion    ordenreparacion @relation(fields: [ID_OrdenReparacion], references: [ID_OrdenReparacion])
 }
 
 enum Rol {

@@ -25,7 +25,7 @@ export default function AdminSidebar({ onAdded }: { onAdded: () => void }) {
           Marca: marca,
           Modelo: modelo,
           Problema: problema,
-          Estado: "A presupuestar", // 👈 siempre inicia así
+          Estado: "A presupuestar",
           Cliente: cliente,
           Email: email,
           Telefono: telefono,

@@ -7,15 +7,38 @@ export default function Header() {
     <header className="fixed top-0 left-0 right-0 bg-[#2CA3E0] text-white shadow-md z-20">
       <div className="w-full flex items-center justify-between px-24 py-3">
         {/* 🔹 Logo mucho más separado del borde */}
-        <div className="flex items-center ml-10">
-          <Image
-            src="/logo.png"
-            alt="Logo Akita"
-            width={65}
-            height={65}
-            className="rounded-full border-2 border-white shadow-sm"
-          />
+        <div className="flex items-center ml-10 gap-4">
+
+          {/* Logo Akita → ir al inicio */}
+          <Link href="/">
+            <Image
+              src="/logo.png"
+              alt="Logo Akita"
+              width={65}
+              height={65}
+              className="rounded-full border-2 border-white shadow-sm cursor-pointer"
+            />
+          </Link>
+
+          {/* Logo ET29 → ir a la página oficial */}
+          <Link
+            href="https://www.tecnica29de6.edu.ar/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              src="/logo_et29.png"
+              alt="Logo Escuela Técnica Nº29"
+              width={65}
+              height={65}
+              className="rounded-full border-2 border-white shadow-sm cursor-pointer"
+            />
+          </Link>
+
         </div>
+
+
+
 
         {/* 🔹 Menú centrado */}
         <nav className="flex-1 flex justify-center gap-10 font-medium text-sm tracking-wide">
